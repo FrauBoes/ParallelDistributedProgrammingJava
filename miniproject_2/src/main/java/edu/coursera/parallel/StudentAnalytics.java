@@ -5,9 +5,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.OptionalDouble;
 import java.util.HashMap;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -53,12 +57,11 @@ public final class StudentAnalytics {
     	
     	List<Student> students = Arrays.asList(studentArray);
     	
-        double res = students.stream()
+        double res = students.parallelStream()
         					.filter(s -> s.checkIsCurrent() == true)
         					.mapToDouble(a -> a.getAge())
         					.average()
         					.getAsDouble();
-        
         return res;
     }
 
@@ -113,7 +116,18 @@ public final class StudentAnalytics {
      */
     public String mostCommonFirstNameOfInactiveStudentsParallelStream(
             final Student[] studentArray) {
-        throw new UnsupportedOperationException();
+    	
+        List<Student> students = Arrays.asList(studentArray);
+        
+        String res = students.parallelStream()
+			        		.filter(s -> s.checkIsCurrent() == false)
+			        		.collect(Collectors.groupingBy(Student::getFirstName, Collectors.counting()))
+			        		.entrySet()
+			        		.stream()
+			        		.max(Comparator.comparing((Entry::getValue)))
+			        		.get()
+			        		.getKey();
+        return res;
     }
 
     /**
@@ -149,6 +163,24 @@ public final class StudentAnalytics {
      */
     public int countNumberOfFailedStudentsOlderThan20ParallelStream(
             final Student[] studentArray) {
-        throw new UnsupportedOperationException();
+    	List<Student> students = Arrays.asList(studentArray);
+        
+        long res = students.parallelStream()
+			        		.filter(s -> s.checkIsCurrent() == false)
+			        		.filter(g -> g.getGrade() < 65)
+			        		.filter(a -> a.getAge() > 20)
+			        		.count();
+			        		
+        return (int) res;
     }
 }
+
+
+
+
+
+
+
+
+
+
