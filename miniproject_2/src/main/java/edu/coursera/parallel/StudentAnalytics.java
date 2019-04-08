@@ -121,6 +121,7 @@ public final class StudentAnalytics {
         
         String res = students.parallelStream()
 			        		.filter(s -> s.checkIsCurrent() == false)
+			        		// Return a hash map with key = first name and value = count
 			        		.collect(Collectors.groupingBy(Student::getFirstName, Collectors.counting()))
 			        		.entrySet()
 			        		.stream()
@@ -166,11 +167,8 @@ public final class StudentAnalytics {
     	List<Student> students = Arrays.asList(studentArray);
         
         long res = students.parallelStream()
-			        		.filter(s -> s.checkIsCurrent() == false)
-			        		.filter(g -> g.getGrade() < 65)
-			        		.filter(a -> a.getAge() > 20)
-			        		.count();
-			        		
+			        		.filter(s -> s.checkIsCurrent() == false && s.getGrade() < 65 && s.getAge() > 20)
+			        		.count();	
         return (int) res;
     }
 }
