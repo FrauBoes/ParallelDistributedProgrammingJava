@@ -1,7 +1,5 @@
 package edu.coursera.concurrent;
 
-import java.security.DrbgParameters.NextBytes;
-
 import edu.rice.pcdp.Actor;
 import static edu.rice.pcdp.PCDP.finish;
 
@@ -13,33 +11,39 @@ import static edu.rice.pcdp.PCDP.finish;
  */
 public final class SieveActor extends Sieve {
     /**
-     * {@inheritDoc}
      *
-     * TODO Use the SieveActorActor class to calculate the number of primes <=
-     * limit in parallel. You might consider how you can model the Sieve of
-     * Eratosthenes as a pipeline of actors, each corresponding to a single
-     * prime number.
+     * Use the SieveActorActor class to calculate the number of primes <=
+     * limit in parallel. Model the Sieve of Eratosthenes as a pipeline of actors, 
+     * each corresponding to a single prime number.
      */
     @Override
     public int countPrimes(final int limit) {
     	final SieveActorActor sieveActor = new SieveActorActor(2);
     	
+    	// Initialize actors for each uneven number in parallel
     	finish(() -> {
     		for (int i = 3; i <= limit; i += 2) {
         		sieveActor.send(i);
         	}
-        	sieveActor.send(0);
+        	sieveActor.send(0);    // Indicate end of numbers
     	});
     	
-    	return sieveActor.numLocalPrimes();
+    	// Accumulate prime number count of all actors
+    	int numPrimes = 0;
+    	SieveActorActor loopActor = sieveActor;
+    	while (loopActor != null) {
+    		numPrimes += loopActor.numLocalPrimes();
+    		loopActor = loopActor.nextActor();
+    	}
+    	
+    	return numPrimes;
     }
 
     /**
-     * An actor class that helps implement the Sieve of Eratosthenes in
-     * parallel.
+     * An actor class that helps implement the Sieve of Eratosthenes in parallel.
      */
     public static final class SieveActorActor extends Actor {
-    	private static final int MAX_LOCAL_PRIMES = 1000;
+    	private static final int MAX_LOCAL_PRIMES = 500;
     	private final int localPrimes[];
     	private int numLocalPrimes;
     	private SieveActorActor nextActor;
@@ -57,15 +61,13 @@ public final class SieveActor extends Sieve {
     	
         /**
          * Process a single message sent to this actor.
-         *
-         * TODO complete this method.
-         *
+         * 
          * @param msg Received message
          */
         @Override
         public void process(final Object msg) {
         	final int candidate = (Integer) msg;
-        	if (candidate <= 0) {
+        	if (candidate <= 0) {    // If end of numbers
         		if (nextActor != null) {
         			nextActor.send(msg);
         		}
@@ -84,16 +86,19 @@ public final class SieveActor extends Sieve {
         	}
         }
         
+        // Check if number is prime number relative to local collection of prime numbers
         private boolean isLocallyPrime(final int candidate) {
         	final boolean[] isPrime = {true};
         	checkPrimeKernel(candidate, isPrime, 0, numLocalPrimes);
         	return isPrime[0];
         }
         
+        // Check if number is a prime number
         private void checkPrimeKernel(final int candidate, final boolean[] isPrime, int startIndex, int endIndex) {
         	for (int i = startIndex; i < endIndex; i++) {
         		if (candidate % localPrimes[i] == 0) {
         			isPrime[0] = false;
+        			return;
         		}
         	}
         }
