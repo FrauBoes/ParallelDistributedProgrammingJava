@@ -38,12 +38,12 @@ public final class ParBoruvka extends AbstractBoruvka<ParBoruvka.ParComponent> {
     	
     	while ((n = nodesLoaded.poll()) != null) {
     		
-    		// Wait for resource to become unlocked
+    		// Check if node n is available
     		if (! n.lock.tryLock()) {
     			continue;
     		}
     		
-    		// Node n has already been collapsed
+    		// Check if node n has already been collapsed
     		if (n.isDead) {
     			n.lock.unlock();
     			continue;
@@ -52,20 +52,23 @@ public final class ParBoruvka extends AbstractBoruvka<ParBoruvka.ParComponent> {
     		// Retrieve n's edge with minimal weight
     		final Edge<ParComponent> e = n.getMinEdge();
     		
-    		// If no further node available, call setSolution
+    		// If no further node is available, the graph has been 
+    		// contracted to a single node and the final solution can be set
     		if (e == null) {
     	    	solution.setSolution(n);
-    			break;    // Contracted graph to a single node
+    			break;    
     		}
     		
     		final ParComponent other = e.getOther(n);
     		
+    		// Check if node other is available
     		if (! other.lock.tryLock()) {
     			n.lock.unlock();
     			nodesLoaded.add(n);
     			continue;
     		}
     		
+    		// Check if node other has already been collapsed
     		if (other.isDead) {
     			other.lock.unlock();
     			n.lock.unlock();
@@ -73,18 +76,19 @@ public final class ParBoruvka extends AbstractBoruvka<ParBoruvka.ParComponent> {
     			continue;
     		}
     		
+    		// Mark other node as collapsed
     		other.isDead = true;
     		
     		// Merge node other into n
     		n.merge(other, e.weight());
     		
+    		// Release locks
     		n.lock.unlock();
     		other.lock.unlock();
     		
     		// Add newly merged n back into nodesLoaded
     		nodesLoaded.add(n);
     	}
-        
     }
 
     /**
