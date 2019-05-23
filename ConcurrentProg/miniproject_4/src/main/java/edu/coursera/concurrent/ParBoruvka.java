@@ -3,9 +3,14 @@ package edu.coursera.concurrent;
 import edu.coursera.concurrent.AbstractBoruvka;
 import edu.coursera.concurrent.SolutionToBoruvka;
 import edu.coursera.concurrent.boruvka.Edge;
+import edu.coursera.concurrent.boruvka.sequential.SeqComponent;
 import edu.coursera.concurrent.boruvka.Component;
 
 import java.util.Queue;
+import java.util.concurrent.locks.ReentrantLock;
+
+import javax.naming.spi.DirStateFactory.Result;
+
 import java.util.List;
 import java.util.ArrayList;
 
@@ -28,7 +33,58 @@ public final class ParBoruvka extends AbstractBoruvka<ParBoruvka.ParComponent> {
     @Override
     public void computeBoruvka(final Queue<ParComponent> nodesLoaded,
             final SolutionToBoruvka<ParComponent> solution) {
-        throw new UnsupportedOperationException();
+    	
+    	ParComponent n = null;
+    	
+    	while ((n = nodesLoaded.poll()) != null) {
+    		
+    		// Wait for resource to become unlocked
+    		if (! n.lock.tryLock()) {
+    			continue;
+    		}
+    		
+    		// Node n has already been collapsed
+    		if (n.isDead) {
+    			n.lock.unlock();
+    			continue;
+    		}
+    		
+    		// Retrieve n's edge with minimal weight
+    		final Edge<ParComponent> e = n.getMinEdge();
+    		
+    		// If no further node available, call setSolution
+    		if (e == null) {
+    	    	solution.setSolution(n);
+    			break;    // Contracted graph to a single node
+    		}
+    		
+    		final ParComponent other = e.getOther(n);
+    		
+    		if (! other.lock.tryLock()) {
+    			n.lock.unlock();
+    			nodesLoaded.add(n);
+    			continue;
+    		}
+    		
+    		if (other.isDead) {
+    			other.lock.unlock();
+    			n.lock.unlock();
+    			nodesLoaded.add(n);
+    			continue;
+    		}
+    		
+    		other.isDead = true;
+    		
+    		// Merge node other into n
+    		n.merge(other, e.weight());
+    		
+    		n.lock.unlock();
+    		other.lock.unlock();
+    		
+    		// Add newly merged n back into nodesLoaded
+    		nodesLoaded.add(n);
+    	}
+        
     }
 
     /**
@@ -66,6 +122,11 @@ public final class ParBoruvka extends AbstractBoruvka<ParBoruvka.ParComponent> {
          * component.
          */
         public boolean isDead = false;
+        
+        /**
+         * Lock to control read and write access
+         */
+        private ReentrantLock lock = new ReentrantLock(true);
 
         /**
          * Constructor.
